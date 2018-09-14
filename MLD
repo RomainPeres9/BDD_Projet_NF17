@@ -1,0 +1,121 @@
+                                          MODÈLE LOGIQUE DE BASE DE DONNÉE
+
+
+LÉGENDE 	Clé primaire, Clé artificielle, Clé étrangère
+
+
+
+GARE (#nom : chaine, #ville : chaine, adresse : chaine, zoneHoraire : chaine, ouverte: bool)
+	
+LIGNE_DE_TRAIN(#idLigne : entier, nomDep=>GARE.nom, villeDep =>GARE.ville
+nomArr=>GARE.ville, villeArr => GARE.ville, type => TYPE_DE_TRAIN.type, supprime : bool)
+avec les contraintes : 
+(nomDep, villeDep) != (nomArr, villeArr) : un ligne de train ne peut pas partir et arriver dans la même ville. 
+On ajoute une clé artificielle car sinon il nous faudrait 5 attributs de la relation pour déterminer une clé primaire.
+
+
+VOYAGEURS(#idVoyageur : Entier, nom : chaine, prenom : chaine, numTel : chaine, adresse : chaine, numCarte : chaine, mail : chaine, statut : {AUCUN, OCCASIONNEL,BRONZE,SILVER,GOLD,PLATINE}) 
+avec les contraintes :
+numCarte UNIQUE : le numéro de carte doivent pouvoir identifier un voyageur membre du programme fidélité 
+On décide d’ajouter une clé artificielle afin de ne pas utiliser 3 attributs (nom,prénom,adresse) comme clé primaire
+nom, prénom, numTel UNIQUE NOT NULL
+(Nom, Prénom, numTel) est une clé candidate 
+
+
+BILLET(#idBillet : Entier, assurance : bool, idVoyageur => VOYAGEURS.idVoyageur, reglement : {CHEQUE,LIQUIDE,CB} ) 
+avec les contraintes : 
+Nous devons ajouter une clé artificielle à notre relation car nous ne pouvons pas déterminer de clé primaire dans cette situation. 
+idVoyageur NOT NULL
+L’attribut dérivé “/prix” n’est pas mentionné dans ici dans le MLD.
+
+
+
+
+
+TRAJET(#idTrajet : entier, heureDepart : heure, heureArrivee : heure , prixClasse1 : entier, 
+prixClasse2 : entier, idLigne => LIGNE_DE_TRAIN.idLigne, actif : bool)
+avec les contraintes : 
+heureDepart < heureArrivee : un train ne peut pas arriver avant de partir
+prixClasse1 et prixClasse2 >= 0 : un prix ne peut pas être négatif. 
+idLigne NOT NULL
+
+
+EXCEPTIONS(#idException : entier, dateDebut : date, dateFin : date, raison : chaine, 
+type : {GREVE, PANNE, FERIE, TRAVAUX, AUTRE} , idTrajet=>TRAJET.idTrajet) 
+avec les contraintes :
+dateDebut < dateFin
+Pour ne pas avoir un nombre trop important d’attribut comme clé primaire, ici presque tous les attributs de la relation, nous ajoutons une clé artificielle
+
+
+PLANNING(#idPlanning : entier, Lu : boolean, Ma : boolean, Me : boolean, Je : boolean, Ve : boolean, Sa : boolean, Di : boolean, dateDebut : date, dateFin : date, idTrajet=>TRAJET.idTrajet) 
+avec les contraintes :
+dateDebut < dateFin
+Pour sélectionner les jours où le train est programmé : 
+lu : lundi
+ma : mardi 
+me : mercredi
+je : jeudi
+ve : vendredi
+sa : samedi
+di : dimanche
+Idem que pour les exceptions, on ajoute une clé artificielle 
+idTrajet NOT NULL
+
+
+TYPE_DE_TRAIN(#type : {TGV,TER,INTERCITÉ}, classe1 : bool, classe2 : bool, placesMax1 : entier, placesMax2 : entier, vMax : entier) 
+avec les contraintes :
+Si la classe 1 existe alors son placesMax1>0 et Si la classe 2 existe alors son placesMax2 > 0 
+vMaxT > 0 : un train ne peut pas avoir une vitesse négative.
+
+
+
+
+
+RESERVATION(date : date, classe : integer, place : integer, validite : boolean, 
+#idTrajet => TRAJET.idTrajet, #idBillet => BILLET.idBillet) 
+avec les contraintes :  
+classe {1,2} : première ou seconde classe.
+date >  [DATE ACTUELLE] : on ne peut pas réserver de billet dans le passé
+place NOT NULL  : mais pas unique car il peut exister une place 27 en 1er et une place 27 en seconde.
+(idTrajet,idBillet,date,classe,place,validité) UNIQUE
+
+NORMALISATION DU MLD
+
+DÉPENDANCES FONCTIONNELLES : 
+
+1- nom,ville -> adresse, zone horaire, ouverte
+2- idLigne -> nomDep, villeDep, nomArr, villeArr, type, supprime
+3- idVoyageur -> nom, prenom, numTel, adresse, numCarte, mail, statut
+3.b- nom, prenom, numTel -> adresse, numCarte, mail, statut
+4- idBillet -> moyenPaiement, assurance, idVoyageur
+5- idTrajet -> heureDepart, heureArrivee, prixClasse1, prixClasse2, idLigne, actif
+6- idException -> dateDebut, dateFin, raison, type, idTrajet
+7- idPlanning -> Lu, Ma, Me, Je, Ve, Sa, Di, Date_Debut, Date_Fin, idTrajet
+8- type-> classe1, classe2, placesMax1, placesMax, vMax
+9- idTrajet, idBillet -> date, classe, place, validite
+
+
+
+1NF : OK - Toutes les tables ont une clé et tous les attributs sont atomiques.
+2NF : OK - Pour les dépendances fonctionnelles de 2 à 8, la clé n’est composée que d’un seul attribut, par conséquent il est impossible que des attributs dépendent d’une partie de la clé | Pour les dépendances fonctionnelles 2, 3b et 9 aucun attribut n’appartenant à aucune clé candidate ne dépend d’une partie de la clé. 
+3NF : OK -  Aucun attribut non clé déterminé par un attribut non clé candidate.
+
+Toutes les relations sont donc en 3NF.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
