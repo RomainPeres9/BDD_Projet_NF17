@@ -1,0 +1,432 @@
+                                                           RENDU SQL
+
+1.	IMPLÉMENTATION DES TABLES ET TYPES : 
+
+
+-	Création GARE : 
+
+CREATE TABLE GARE (
+		nom VARCHAR(50),
+	ville VARCHAR(50),
+	adresse VARCHAR(200),
+	zoneHoraire VARCHAR(20),
+	ouverte boolean DEFAULT TRUE,
+
+	PRIMARY KEY (nom, ville)
+);
+
+
+-	Création typeTrain :
+
+CREATE TYPE typeTrain AS ENUM (‘TGV’, ‘TER’, ‘INTERCITES’);
+
+
+-	Création classe :
+
+CREATE TYPE classe AS ENUM (‘1’, ‘2’);
+
+
+-	Création TYPE_DE_TRAIN :
+
+CREATE TABLE TYPE_DE_TRAIN (
+type typeTrain,
+classe1 bool NOT NULL,
+classe2 bool NOT NULL,
+placesMax1 INTEGER NOT NULL DEFAULT 0,
+placesMax2 INTEGER NOT NULL DEFAULT 0,
+vMax  INTEGER NOT NULL,
+	
+PRIMARY KEY (type),
+CHECK ( vMax > 0),
+CHECK ( (classe1 = TRUE AND classe2 = TRUE AND placesMax1 > 0 AND placesMax2 > 0) OR (classe1 = FALSE AND classe2 = TRUE AND placesMax1= 0 AND placesMax2 > 0) OR (classe1= TRUE AND classe2 = FALSE AND placesMax1 > 0 AND placesMax2 = 0))
+);
+
+
+-	Création typeException :
+
+CREATE TYPE typeException AS ENUM (‘GREVE’, ‘PANNE’, ‘FERIE’, ‘TRAVAUX’, ‘AUTRE’);
+
+
+-	Création EXCEPTIONS :
+
+CREATE TABLE EXCEPTIONS (
+idException SERIAL,
+		dateDebut DATE NOT NULL,
+	dateFin DATE NOT NULL,
+		raison VARCHAR(100),
+type typeException NOT NULL,
+idTrajet INTEGER NOT NULL,
+	
+PRIMARY KEY (idException),
+CHECK ( dateDebut < dateFin ),
+CHECK (dateDebut >= CURRENT_DATE),
+FOREIGN idTrajet REFERENCES TRAJET (idTrajet),
+);
+
+
+-	Création LIGNE_DE_TRAIN :
+
+CREATE TABLE LIGNE_DE_TRAIN (
+	idLigne  SERIAL,
+	nomDep VARCHAR(50) NOT NULL,
+	villeDep VARCHAR(50) NOT NULL,
+	nomArr VARCHAR(50) NOT NULL,
+	villeArr VARCHAR(50) NOT NULL,
+	type typeTrain NOT NULL,
+	supprime  boolean DEFAULT FALSE,
+
+PRIMARY KEY (idLigne),	
+FOREIGN KEY (nomDep,villeDep) REFERENCES GARE (nom,ville),
+FOREIGN KEY (nomArr,villeArr) REFERENCES GARE (nom,ville),
+FOREIGN KEY type REFERENCES TYPE_DE_TRAIN(type)
+CHECK ( villeDep <> villeArr OR nomDep <> nomArr )
+);
+
+
+-	Création statut :
+
+CREATE TYPE statut AS ENUM (NULL,‘OCCASIONNEL’,’BRONZE’, ‘SILVER’,‘GOLD’ ‘PLATINE’);
+
+
+-	Création VOYAGEURS :
+
+CREATE TABLE VOYAGEURS (
+	idVoyageur SERIAL,
+	nom VARCHAR(50) NOT NULL,
+	prenom VARCHAR(50) NOT NULL,
+	numTel INTEGER NOT NULL,
+	adresse VARCHAR(200),
+numCarte VARCHAR(10) NOT NULL,
+mail VARCHAR(200),
+statut statut DEFAULT NULL,
+
+PRIMARY KEY (idVoyageur),
+UNIQUE (nom, prenom, numTel),
+UNIQUE (numCarte),
+);
+
+
+-	Création TRAJET :
+
+CREATE TABLE TRAJET (
+	idTrajet SERIAL,
+	heureDepart TIME NOT NULL,
+	heureArrivee TIME NOT NULL,
+	prixClasse1 INTEGER NOT NULL DEFAULT 0,
+            prixClasse2 INTEGER NOT NULL DEFAULT 0,
+          idLigne INTEGER NOT NULL,
+actif BOOLEAN DEFAULT TRUE,
+	
+PRIMARY KEY (idTrajet),
+CHECK ( heureDepart < heureArrivee ),
+CHECK ( prixClasse1 >= 0 AND prixClasse2 >=0),
+FOREIGN KEY idLigne REFERENCES LIGNE_DE_TRAIN(idLigne),
+
+);
+
+
+-	Création paiement :
+
+CREATE TYPE paiement AS ENUM (‘CHEQUE’, ‘LIQUIDE’, ‘CB’);
+
+
+-	Création BILLET :
+
+CREATE TABLE BILLET (
+	idBillet SERIAL,
+	assurance boolean,
+	idVoyageur INTEGER NOT NULL,
+	prix INTEGER NOT NULL DEFAULT 0,
+	reglement paiement NOT NULL DEFAULT = ’CB’,
+
+PRIMARY KEY (idBillet)
+FOREIGN KEY (idVoyageur) REFERENCES VOYAGEURS(idVoyageur),
+
+);
+
+-	Création PLANNING :
+
+CREATE TABLE PLANNING (
+idPlanning SERIAL,
+lu boolean,
+ma boolean,
+me boolean,
+je  boolean,
+ve  boolean,
+sa  boolean,
+di  boolean,
+dateDebut DATE NOT NULL,
+dateFin DATE NOT NULL,
+idTrajet INTEGER NOT NULL,
+	
+PRIMARY KEY (idPlanning),
+FOREIGN KEY idTrajet REFERENCES TRAJET (idTrajet),
+CHECK ( dateDebut < dateFin ),
+CHECK (dateDebut >= CURRENT_DATE),
+);
+
+
+-	Création RESERVATION :
+
+//vérifie que la place demandée n’est pas déjà prise
+
+CREATE VIEW placesUtilisees AS 
+SELECT place FROM RESERVATION 
+WHERE idTrajet = ‘[idTrajet]’ AND classe = ‘[classe]’ AND place = ‘[PLACE]’;
+
+check en php si placesUtilisees IS NULL, et si la place est bien comprise entre 0 et le nombre de places dans la classe souhaitée
+
+DROP VIEW placesUtilisees;  //supprime la vue après utilisation
+
+CREATE TABLE RESERVATION (
+date DATE NOT NULL,
+classe INTEGER NOT NULL,
+place INTEGER NOT NULL,
+validite BOOLEAN,
+idTrajet INTEGER NOT NULL,
+idBillet INTEGER NOT NULL,
+	
+PRIMARY KEY (idTrajet,idBillet),
+FOREIGN KEY (idTrajet) REFERENCES TRAJET (idTrajet),
+FOREIGN KEY (idBillet) REFERENCES BILLET (idBillet),
+CHECK( date >= CURRENT_DATE )
+CHECK( classe = ‘1’ OR classe = ‘2’)
+);
+
+
+
+2.	AJOUTS : 
+
+-	Ajout d’une gare :
+
+	INSERT INTO GARE VALUES (‘[nom]’, ‘[ville]’,’[adresse]’, ‘[zoneHoraire]’);
+	Vérification que la gare n’existe pas déjà en php, sinon :  
+UPDATE GARE SET ouverte = TRUE 
+WHERE nom =‘[nom]’ AND ville = ‘[ville]’;
+
+
+-	Ajout d’un type de train
+
+INSERT INTO TYPE_DE_TRAIN VALUES (‘[type]’, ‘[placeMax1]’, ‘[placeMax2]’, ‘[vMax]’, [Classe1], [Classe2],);
+
+test sur les contraintes
+boolean à false et capacité non nulle
+
+boolean à true et capacité nulle
+
+type n’appartenant pas à l’énumération
+
+
+-	Ajout d’une exception
+
+INSERT INTO EXCEPTIONS VALUES ( DEFAULT, ‘[dateDebut]’, ‘[dateFin]’, ‘[raison]’, ‘[type]’, ‘[idTrajet]’);
+
+test sur les contraintes
+Contrainte de clé étrangère 
+dateFin>dateDebut
+dateDebut>NOW()
+
+
+-	Ajout d’une ligne de train
+
+INSERT INTO LIGNE_DE_TRAIN VALUES ( DEFAULT, ‘[nomDep]’, ‘[villeDep]’,’[nomArr]’, ‘[villeArr]’,‘[type]’, FALSE);
+
+Check en PHP si la ligne n’existe pas déjà, sinon : 
+UPDATE  LIGNE_DE_TRAIN SET supprime = FALSE 
+WHERE nomDep =‘[nomDep]’ AND villeDep = ‘[villeDep]’ AND nomArr = ‘[nomArr]’ AND villeArr = ‘[villeArr]’;
+
+
+-	Ajout d’un voyageur
+
+INSERT INTO VOYAGEURS VALUES ( DEFAULT, ‘[nom]’,’[prenom]’, ‘[numTel]’, ‘[adresse]’,DEFAULT, ‘[mail]’, ‘AUCUN’);
+
+cas où le voyageur n’a pas de statut 
+respect de l’intégrité du statut 
+vérification qu’un numéro de carte est unique
+
+
+-	Ajout d’un trajet 
+
+En php, récupérer le nombre de classes sur un trajet 
+$classe1 = SELECT TT.classe1
+FROM TRAJET T, LIGNE_DE_TRAIN L, TYPE_DE_TRAIN TT
+WHERE T.idTrajet = $idTrajet AND T.idLigne = L.idLigne AND L.type = TT.type
+
+$classe2 = SELECT TT.classe2
+FROM TRAJET T, LIGNE_DE_TRAIN L, TYPE_DE_TRAIN TT
+WHERE T.idTrajet = $idTrajet AND T.idLigne = L.idLigne AND L.type = TT.type
+
+if ($classe1 && $classe2)  
+INSERT into TRAJET VALUES ( DEFAULT,‘[heureDepart]’, ‘[heureArrivee]’,’[prixClasse1]’, ‘[prixClasse2]’,’[idLigne]’);
+
+if ($classe1 && !$classe2)
+INSERT into TRAJET VALUES ( DEFAULT,‘[heureDepart]’, ‘[heureArrivee]’,’[prixClasse1]’, ‘0’,’[idLigne]’);
+
+if(!$classe1 && $classe2)
+INSERT into TRAJET VALUES ( DEFAULT,‘[heureDepart]’, ‘[heureArrivee]’,’0’, ‘[prixClasse2]’,’[idLigne]’);
+
+Vérification des prix (php)
+
+if ((SELECT TT.classe1
+FROM TRAJET T, LIGNE_DE_TRAIN L, TYPE_DE_TRAIN TT
+WHERE T.idTrajet = $idTrajet AND T.idLigne = L.idLigne AND L.type = TT.type) == TRUE && (SELECT prixClasse 1
+FROM TRAJET 
+WHERE idTrajet = $idTrajet) == 0)
+		echo “erreur : classe 1 dispo pour prix nul”;
+
+if (SELECT TT.classe1)
+
+FROM TRAJET T, LIGNE_DE_TRAIN L, TYPE_DE_TRAIN TT
+WHERE T.idTrajet = $idTrajet AND T.idLigne = L.idLigne AND L.type = TT.type) == FALSE && (SELECT prixClasse 1
+FROM TRAJET 
+WHERE idTrajet = $idTrajet) !== 0)
+		echo “erreur : pas de classe 1 mais prix non nul”
+
+//Idem pour la classe 2
+
+
+-	Ajout d’une réservation
+On vérifie en php + requête SQL que la classe choisie est bien disponible sur ce trajet
+INSERT INTO RESERVATION VALUES (‘[date]’, ‘[classe]’, ‘[place]’, ‘[validite]’, ‘[idTrajet]’, ‘[idBillet]’ );
+
+Clés étrangères idbillet & idtrajet 
+
+
+MAJ du statut du client après réservation : //MAUVAISE SYNTAXE
+
+UPDATE VOYAGEUR 
+	SET statut = BRONZE
+	HAVING (COUNT(*)
+FROM RESERVATION 
+WHERE idVoyageur =’[idVoyageur]’ < 20) AND actif = TRUE;
+UPDATE VOYAGEUR 
+	SET statut = BRONZE
+	HAVING (COUNT(*)
+FROM RESERVATION 
+WHERE idVoyageur =’[idVoyageur]’ < 20) AND actif = TRUE;
+UPDATE VOYAGEUR 
+	SET statut = SILVER
+	HAVING (COUNT(*)
+FROM RESERVATION 
+WHERE idVoyageur =’[idVoyageur]’ < 50 ) AND actif = TRUE;
+UPDATE VOYAGEUR 
+	SET statut = GOLD
+	HAVING (COUNT(*)
+FROM RESERVATION 
+WHERE idVoyageur =’[idVoyageur]’  <100) AND actif = TRUE;
+UPDATE VOYAGEUR 
+	SET statut = PLATINE
+	HAVING (COUNT(*)
+FROM RESERVATION 
+WHERE idVoyageur =’[idVoyageur]’) AND actif = TRUE;
+
+MAJ du prix du billet après réservation : 
+
+UPDATE BILLET                                                                                             
+SET prix = (prix + TRAJET.prixClasse1)                                                                                 
+FROM TRAJET, RESERVATION                                                                                              
+WHERE BILLET.idbillet = RESERVATION.idbillet AND RESERVATION.idtrajet=$idTrajet AND 
+RESERVATION.classe = 1 AND TRAJET.actif = TRUE AND 
+RESERVATION.validite = TRUE;
+
+UPDATE BILLET                                                                                             
+SET prix = (prix + TRAJET.prixClasse2)                                                                                 
+FROM TRAJET, RESERVATION                                                                                              
+WHERE BILLET.idbillet = RESERVATION.idbillet AND RESERVATION.idtrajet=$idTrajet AND 
+RESERVATION.classe = 2 AND TRAJET.actif = TRUE AND 
+RESERVATION.validite = TRUE;
+
+
+-	Ajout d’un billet 
+
+INSERT INTO BILLET VALUES (DEFAULT, ‘[assurance]’, ‘[idVoyageur]’, 0, ‘[reglement]’);
+
+
+-	Ajout d’un planning
+
+INSERT INTO PLANNING VALUES (DEFAULT,‘[lu]’,‘[ma]’,‘[me]’,‘[je]’,‘[ve]’,‘[sa]’,‘[di]’,’[dateDebut]’,’[dateFin]’,‘[idTrajet]’,);
+
+vérification date début < date fin
+
+vérification date début > CURRENT_DATE SUPPRESSION : 
+
+-	Supprimer une réservation
+UPDATE RESERVATION SET validite = FALSE WHERE idBillet = [idBillet] AND idTrajet = [idTrajet];
+
+-	MAJ prix billet
+
+
+UPDATE BILLET                                                                                             
+SET prix = (prix - TRAJET.prixClasse1)                                                                                 
+FROM TRAJET, RESERVATION                                                                                              
+WHERE BILLET.idbillet = RESERVATION.idbillet AND RESERVATION.idtrajet=$idTrajet AND 
+RESERVATION.classe = 1 AND TRAJET.actif = TRUE AND 
+RESERVATION.validite = FALSE;
+
+UPDATE BILLET                                                                                             
+SET prix = (prix - TRAJET.prixClasse2)                                                                                 
+FROM TRAJET, RESERVATION                                                                                              
+WHERE BILLET.idbillet = RESERVATION.idbillet AND RESERVATION.idtrajet=$idTrajet AND 
+RESERVATION.classe = 2 AND TRAJET.actif = TRUE AND 
+RESERVATION.validite = FALSE;
+
+
+-	Supprimer un trajet
+
+UPDATE TRAJET
+	SET actif = FALSE
+	WHERE idTrajet = ‘[idTrajet]’
+	AND actif = TRUE AND (
+SELECT idBillet
+FROM RESERVATION
+WHERE idTrajet = ‘[idTrajet]’ AND RESERVATION.validité = TRUE
+) IS NULL;
+
+
+-	Supprimer tous les trajets associés à une ligne - À TESTER
+
+UPDATE TRAJET
+	SET actif = FALSE
+	WHERE idLigne = ‘[idLigne]’
+	AND actif = TRUE AND (
+SELECT * 
+FROM TRAJET AS T, RESERVATION AS R
+WHERE T.idLigne = ‘[idLigne]’ AND R.idTrajet = T.idTrajet AND R.validite = TRUE
+) IS NULL;
+
+
+-	Supprimer une ligne de train - À TESTER
+
+UPDATE LIGNE_DE_TRAIN
+	SET supprime = TRUE
+	WHERE idLigne = ‘[idLigne]’
+AND (
+SELECT * 
+FROM TRAJET T, LIGNE_DE_TRAIN L 
+WHERE T.idLigne = ‘[idLigne]’ AND T.actif = TRUE
+) IS NULL;
+
+
+-	Supprimer toutes les lignes de train associées à une gare - À TESTER
+
+//On supprimera les lignes de train associées à une gare avant de fermer celle-ci
+//On vérifie qu’aucun trajet n’emprunte ces lignes. 
+UPDATE LIGNE_DE_TRAIN L
+	SET L.supprime = TRUE
+	WHERE (nomDep = ‘[nom]’ AND villeDep = ‘[ville]’) OR (nomArr = ‘[nom]’ AND villeArr = ‘[ville]’)
+AND (SELECT * FROM TRAJET T, LIGNE_DE_TRAIN L WHERE ((L.nomDep = ‘[nom]’ AND L.villeDep = ‘[ville]’) OR (L.nomArr = ‘[nom]’ AND L.villeArr = ‘[ville]’)) AND T.idLigne = L.idLigne AND T.actif = TRUE) IS NULL;
+
+
+-	Supprimer une Gare
+
+UPDATE GARE
+	SET ouverte = FALSE
+	WHERE nom = ‘[nom]’ AND ville = ‘[ville]’ AND (
+(
+SELECT idLigne 
+FROM LIGNE_DE_TRAIN L 
+WHERE ((L.nomDep = ‘[nom]’ AND L.villeDep = ‘[ville]’) 
+OR (L.nomArr = ‘[nom]’ AND L.villeArr = ‘[ville]’) 
+AND (L.supprime = FALSE))
+) 
+IS NULL);
